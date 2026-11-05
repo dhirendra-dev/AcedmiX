@@ -148,7 +148,7 @@ const navItems: { page: Exclude<Page, 'welcome' | 'course'>; label: string; icon
   { page: 'profile', label: 'Profile', icon: UserRound },
 ];
 
-type StudyTask = { id: string; title: string; subject: string; done: boolean };
+type StudyTask = { id: string; title: string; subject: string; done: boolean; dueDate: string; priority: 'Low' | 'Normal' | 'High'; recurrence: 'None' | 'Daily' | 'Weekly'; completedDates: string[] };
 type QuizQuestion = { id: string; subject: string; prompt: string; options: string[]; answer: number; explanation: string };
 type StudyNote = { id: string; title: string; body: string; subject: string; updatedAt: number };
 type Flashcard = { id: string; front: string; back: string; subject: string; dueAt: number; intervalDays: number; repetitions: number };
@@ -160,6 +160,12 @@ const quizQuestions: QuizQuestion[] = [
   { id: 'q5', subject: 'Science', prompt: 'Which gas do plants absorb during photosynthesis?', options: ['Oxygen', 'Carbon dioxide', 'Nitrogen', 'Hydrogen'], answer: 1, explanation: 'Plants use carbon dioxide and water, with light energy, to make glucose.' },
 ];
 
+function localDateKey(date: Date): string { const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const d = String(date.getDate()).padStart(2, '0'); return `${y}-${m}-${d}`; }
+function shiftDate(dateKey: string, amount: number): string { const [y, m, d] = dateKey.split('-').map(Number); const date = new Date(y, m - 1, d); date.setDate(date.getDate() + amount); return localDateKey(date); }
+function weekStart(dateKey: string): string { const [y, m, d] = dateKey.split('-').map(Number); const date = new Date(y, m - 1, d); date.setDate(date.getDate() - ((date.getDay() + 6) % 7)); return localDateKey(date); }
+function taskOccursOn(task: StudyTask, dateKey: string): boolean { if (dateKey < task.dueDate) return false; if (task.recurrence === 'Daily') return true; if (task.recurrence === 'Weekly') { const [y, m, d] = task.dueDate.split('-').map(Number); const [yy, mm, dd] = dateKey.split('-').map(Number); return new Date(y, m - 1, d).getDay() === new Date(yy, mm - 1, dd).getDay(); } return dateKey === task.dueDate; }
+function taskIsDone(task: StudyTask, dateKey: string): boolean { return task.recurrence === 'None' ? task.done : task.completedDates.includes(dateKey); }
+
 function readTasks(): StudyTask[] {
   try {
     const value = window.localStorage.getItem('acedmix-study-tasks');
@@ -168,7 +174,7 @@ function readTasks(): StudyTask[] {
       { id: 'task-2', title: 'Complete one practice set', subject: 'Mathematics', done: false },
       { id: 'task-3', title: 'Read a new lesson', subject: 'Science', done: true },
     ];
-    return Array.isArray(parsed) ? parsed.filter((item): item is StudyTask => item && typeof item.id === 'string' && typeof item.title === 'string' && typeof item.subject === 'string' && typeof item.done === 'boolean') : [];
+    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string' && typeof item.title === 'string' && typeof item.subject === 'string' && typeof item.done === 'boolean').map((item) => ({ id: item.id, title: item.title, subject: item.subject, done: item.done, dueDate: typeof item.dueDate === 'string' ? item.dueDate : localDateKey(new Date()), priority: item.priority === 'Low' || item.priority === 'High' ? item.priority : 'Normal', recurrence: item.recurrence === 'Daily' || item.recurrence === 'Weekly' ? item.recurrence : 'None', completedDates: Array.isArray(item.completedDates) ? item.completedDates.filter((date) => typeof date === 'string') : [] })) : [];
   } catch { return []; }
 }
 
@@ -213,6 +219,10 @@ function App() {
   const [tasks, setTasks] = useState<StudyTask[]>(readTasks);
   const [newTask, setNewTask] = useState('');
   const [newSubject, setNewSubject] = useState('General');
+  const [newTaskDate, setNewTaskDate] = useState(() => localDateKey(new Date()));
+  const [newTaskPriority, setNewTaskPriority] = useState<'Low' | 'Normal' | 'High'>('Normal');
+  const [newTaskRecurrence, setNewTaskRecurrence] = useState<'None' | 'Daily' | 'Weekly'>('None');
+  const [plannerDate, setPlannerDate] = useState(() => localDateKey(new Date()));
   const [focusMode, setFocusMode] = useState<'focus' | 'short' | 'long'>('focus');
   const [secondsLeft, setSecondsLeft] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -307,9 +317,18 @@ function App() {
   const addTask = () => {
     const title = newTask.trim();
     if (!title) return;
-    setTasks((current) => [...current, { id: `task-${Date.now()}`, title, subject: newSubject, done: false }]);
+    setTasks((current) => [...current, { id: `task-${Date.now()}`, title, subject: newSubject, done: false, dueDate: newTaskDate, priority: newTaskPriority, recurrence: newTaskRecurrence, completedDates: [] }]);
     setNewTask('');
     setToast('Added to your study plan');
+  };
+  const plannerWeekStart = weekStart(plannerDate);
+  const plannerWeekDays = Array.from({ length: 7 }, (_, index) => shiftDate(plannerWeekStart, index));
+  const plannerDayTasks = tasks.filter((task) => taskOccursOn(task, plannerDate));
+  const plannerDoneCount = plannerDayTasks.filter((task) => taskIsDone(task, plannerDate)).length;
+  const plannerBacklog = tasks.filter((task) => task.recurrence === 'None' && task.dueDate < plannerDate && !task.done);
+  const togglePlannerTask = (task: StudyTask) => {
+    if (task.recurrence === 'None') setTasks((current) => current.map((item) => item.id === task.id ? { ...item, done: !item.done } : item));
+    else setTasks((current) => current.map((item) => item.id === task.id ? { ...item, completedDates: item.completedDates.includes(plannerDate) ? item.completedDates.filter((date) => date !== plannerDate) : [...item.completedDates, plannerDate] } : item));
   };
   const setTimerPreset = (mode: 'focus' | 'short' | 'long') => {
     setTimerRunning(false);
@@ -515,12 +534,19 @@ function App() {
 
           {page === 'planner' && (
             <>
-              <section className="page-heading-row"><div><p className="eyebrow">MAKE SPACE FOR WHAT MATTERS</p><h1>Your study <em>plan.</em></h1><p className="intro-subtitle">A clear plan makes starting feel easier.</p></div><div className="library-stamp"><CalendarDays size={24} /><span>ONE DAY<br />AT A TIME</span></div></section>
-              <section className="planner-summary"><div><span className="section-overline">TODAY’S MOMENTUM</span><strong>{tasks.filter((task) => task.done).length}<small> / {tasks.length}</small></strong><p>tasks completed</p></div><div className="planner-summary-track"><span style={{ width: `${tasks.length ? tasks.filter((task) => task.done).length / tasks.length * 100 : 0}%` }} /></div><span className="planner-quote">“It always seems impossible until it’s done.”</span></section>
-              <section className="section-block planner-block"><div className="section-heading"><div><p className="eyebrow">YOUR PRIORITIES</p><h2>Today’s checklist</h2></div><span className="quiet-label">{tasks.filter((task) => !task.done).length} LEFT TO DO</span></div>
-                <form className="task-form" onSubmit={(event) => { event.preventDefault(); addTask(); }}><input aria-label="New task" value={newTask} onChange={(event) => setNewTask(event.target.value)} placeholder="Add a small, achievable task..." /><select aria-label="Task subject" value={newSubject} onChange={(event) => setNewSubject(event.target.value)}><option>General</option><option>Mathematics</option><option>Science</option><option>Revision</option><option>Practice</option></select><button className="button button-dark" type="submit"><Plus size={16} /> Add task</button></form>
-                <div className="task-list">{tasks.map((task) => <div className={`task-row ${task.done ? 'task-done' : ''}`} key={task.id}><button type="button" className="task-check" aria-label={task.done ? `Reopen ${task.title}` : `Complete ${task.title}`} onClick={() => setTasks((current) => current.map((item) => item.id === task.id ? { ...item, done: !item.done } : item))}>{task.done && <Check size={14} />}</button><span className="task-copy"><strong>{task.title}</strong><small>{task.subject}</small></span><button type="button" className="task-remove" aria-label={`Delete ${task.title}`} onClick={() => setTasks((current) => current.filter((item) => item.id !== task.id))}><X size={16} /></button></div>)}{tasks.length === 0 && <div className="empty-state"><Target size={28} /><h3>A fresh page.</h3><p>Add one small task to get started.</p></div>}</div>
+              <section className="page-heading-row"><div><p className="eyebrow">MAKE SPACE FOR WHAT MATTERS</p><h1>Your study <em>plan.</em></h1><p className="intro-subtitle">Plan the week, make progress visible, and give every task a place.</p></div><div className="library-stamp"><CalendarDays size={24} /><span>ONE DAY<br />AT A TIME</span></div></section>
+              <section className="planner-summary"><div><span className="section-overline">SELECTED DAY</span><strong>{plannerDoneCount}<small> / {plannerDayTasks.length}</small></strong><p>tasks completed</p></div><div className="planner-summary-track"><span style={{ width: `${plannerDayTasks.length ? plannerDoneCount / plannerDayTasks.length * 100 : 0}%` }} /></div><span className="planner-quote">{plannerDayTasks.length ? `${plannerDayTasks.length - plannerDoneCount} tasks left in your plan` : 'A little structure creates room to grow.'}</span></section>
+              <section className="planner-calendar">
+                <div className="planner-calendar-head"><div><p className="eyebrow">YOUR WEEK AT A GLANCE</p><h2>{new Date(Number(plannerWeekStart.slice(0,4)), Number(plannerWeekStart.slice(5,7))-1, Number(plannerWeekStart.slice(8,10))).toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2></div><div className="planner-week-actions"><button type="button" onClick={() => setPlannerDate((date) => shiftDate(date,-7))} aria-label="Previous week"><ArrowLeft size={16}/></button><button type="button" onClick={() => setPlannerDate(localDateKey(new Date()))}>Today</button><button type="button" onClick={() => setPlannerDate((date) => shiftDate(date,7))} aria-label="Next week"><ArrowRight size={16}/></button></div></div>
+                <div className="planner-week-grid">{plannerWeekDays.map((date) => { const [y,m,d] = date.split('-').map(Number); const day = new Date(y,m-1,d); const dayTasks = tasks.filter((task) => taskOccursOn(task,date)); const done = dayTasks.filter((task) => taskIsDone(task,date)).length; return <button type="button" key={date} className={`planner-day ${plannerDate === date ? 'selected' : ''} ${date === localDateKey(new Date()) ? 'is-today' : ''}`} onClick={() => setPlannerDate(date)}><span>{day.toLocaleDateString(undefined,{weekday:'short'})}</span><strong>{d}</strong><small>{dayTasks.length ? `${done}/${dayTasks.length} done` : 'No tasks'}</small><i style={{ opacity: dayTasks.length ? 1 : 0 }} /></button>; })}</div>
+                <div className="planner-selected-date"><CalendarDays size={16}/><strong>{new Date(Number(plannerDate.slice(0,4)),Number(plannerDate.slice(5,7))-1,Number(plannerDate.slice(8,10))).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</strong><span>{plannerDayTasks.length} planned</span></div>
               </section>
+              <section className="section-block planner-block"><div className="section-heading"><div><p className="eyebrow">BUILD YOUR PLAN</p><h2>Add a task</h2></div><span className="quiet-label">SMALL STEPS COUNT</span></div>
+                <form className="task-form planner-task-form" onSubmit={(event) => { event.preventDefault(); addTask(); }}><input aria-label="New task" value={newTask} onChange={(event) => setNewTask(event.target.value)} placeholder="Add a small, achievable task..." /><select aria-label="Task subject" value={newSubject} onChange={(event) => setNewSubject(event.target.value)}><option>General</option><option>Mathematics</option><option>Science</option><option>Revision</option><option>Practice</option><option>Technology</option></select><input aria-label="Task due date" type="date" value={newTaskDate} onChange={(event) => setNewTaskDate(event.target.value)} /><select aria-label="Task priority" value={newTaskPriority} onChange={(event) => setNewTaskPriority(event.target.value as 'Low'|'Normal'|'High')}><option>Low</option><option>Normal</option><option>High</option></select><select aria-label="Task recurrence" value={newTaskRecurrence} onChange={(event) => setNewTaskRecurrence(event.target.value as 'None'|'Daily'|'Weekly')}><option value="None">No repeat</option><option value="Daily">Every day</option><option value="Weekly">Every week</option></select><button className="button button-dark" type="submit"><Plus size={16} /> Add task</button></form>
+                <div className="section-heading planner-list-heading"><div><p className="eyebrow">YOUR PRIORITIES</p><h2>{plannerDate === localDateKey(new Date()) ? 'Today’s checklist' : 'Daily checklist'}</h2></div><span className="quiet-label">{plannerDayTasks.length - plannerDoneCount} LEFT TO DO</span></div>
+                <div className="task-list">{plannerDayTasks.slice().sort((a,b) => ({High:0,Normal:1,Low:2}[a.priority] - {High:0,Normal:1,Low:2}[b.priority])).map((task) => { const done = taskIsDone(task,plannerDate); return <div className={`task-row planner-task-row ${done ? 'task-done' : ''}`} key={task.id}><button type="button" className="task-check" aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`} onClick={() => togglePlannerTask(task)}>{done && <Check size={14}/>}</button><span className="task-copy"><strong>{task.title}</strong><small>{task.subject} · {task.priority} priority{task.recurrence !== 'None' ? ` · ${task.recurrence.toLowerCase()}` : ''}</small></span><span className={`task-priority priority-${task.priority.toLowerCase()}`}>{task.priority}</span><button type="button" className="task-remove" aria-label={`Delete ${task.title}`} onClick={() => setTasks((current) => current.filter((item) => item.id !== task.id))}><X size={16}/></button></div>; })}{plannerDayTasks.length === 0 && <div className="empty-state"><Target size={28}/><h3>A fresh page.</h3><p>No tasks are planned for this day. Add one small step above.</p></div>}</div>
+              </section>
+              <section className="planner-backlog"><div className="section-heading"><div><p className="eyebrow">CATCH UP WITHOUT THE CHAOS</p><h2>Backlog</h2></div><span className="quiet-label">{plannerBacklog.length} OVERDUE</span></div>{plannerBacklog.map((task) => <div className="planner-backlog-row" key={task.id}><span className="backlog-dot"/><div><strong>{task.title}</strong><small>{task.subject} · Due {new Date(Number(task.dueDate.slice(0,4)),Number(task.dueDate.slice(5,7))-1,Number(task.dueDate.slice(8,10))).toLocaleDateString()}</small></div><button type="button" onClick={() => setTasks((current) => current.map((item) => item.id === task.id ? {...item,dueDate:plannerDate} : item))}>Move to selected day</button></div>)}{plannerBacklog.length === 0 && <p className="planner-backlog-empty"><CheckCircle2 size={16}/> No overdue tasks. Your backlog is clear.</p>}</section>
             </>
           )}
 

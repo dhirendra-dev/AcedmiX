@@ -704,3 +704,44 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ember); out
 :root[data-theme="dark"] .revision-overview,:root[data-theme="dark"] .revision-session,:root[data-theme="dark"] .revision-schedule{background:#171f19}
 :root[data-theme="dark"] .revision-grades button{background:#101711;color:var(--ink)}
 @media(max-width:700px){.revision-overview{gap:7px}.revision-overview>div{padding:13px 10px}.revision-overview strong{font-size:27px}.revision-session,.revision-schedule{padding:17px}.revision-grades>div{grid-template-columns:repeat(2,minmax(0,1fr))}.revision-queue-row{gap:9px}.revision-queue-row strong{max-width:190px}}
+
+
+/* Weekly planner and task management */
+.planner-calendar,.planner-backlog{border:1px solid var(--line);padding:22px;background:var(--paper-soft)}
+.planner-calendar-head{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.planner-calendar-head h2{margin:6px 0 0;font-family:var(--serif);font-size:27px;font-weight:500}
+.planner-week-actions{display:flex;align-items:center;gap:6px}
+.planner-week-actions button{display:grid;min-width:34px;height:34px;place-items:center;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;font-size:10px}
+.planner-week-actions button:nth-child(2){padding:0 12px}
+.planner-week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:20px}
+.planner-day{position:relative;display:flex;min-width:0;min-height:106px;flex-direction:column;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.planner-day>span{color:var(--muted);font-size:9px;text-transform:uppercase}
+.planner-day>strong{font-family:var(--serif);font-size:25px;font-weight:500}
+.planner-day>small{color:var(--muted);font-size:8px}
+.planner-day>i{position:absolute;bottom:8px;width:4px;height:4px;border-radius:50%;background:var(--ember)}
+.planner-day.selected{border-color:var(--forest);background:var(--forest);color:#fff}
+.planner-day.selected>span,.planner-day.selected>small{color:#e1e9e3}
+.planner-day.selected>i{background:#e7a184}
+.planner-day.is-today:not(.selected){outline:1px solid var(--ember);outline-offset:2px}
+.planner-selected-date{display:flex;align-items:center;gap:9px;margin-top:18px;padding-top:15px;border-top:1px solid var(--line);color:var(--forest)}
+.planner-selected-date strong{font-size:11px}
+.planner-selected-date span{margin-left:auto;color:var(--muted);font-size:10px}
+.planner-task-form{grid-template-columns:minmax(180px,2fr) repeat(2,minmax(110px,1fr));}
+.planner-task-form .button{grid-column:1/-1;justify-self:end}
+.planner-list-heading{margin-top:28px}
+.planner-task-row{gap:12px}
+.task-priority{min-width:55px;text-align:center;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.priority-high{color:#b64a32}.priority-normal{color:var(--muted)}.priority-low{color:var(--forest)}
+.planner-backlog{margin-top:24px}
+.planner-backlog-row{display:flex;align-items:center;gap:12px;min-height:58px;border-bottom:1px solid var(--line)}
+.planner-backlog-row:last-of-type{border-bottom:0}
+.backlog-dot{width:7px;height:7px;flex:none;border-radius:50%;background:#c95132}
+.planner-backlog-row>div{min-width:0;flex:1}
+.planner-backlog-row strong{display:block;overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.planner-backlog-row small{display:block;margin-top:4px;color:var(--muted);font-size:9px}
+.planner-backlog-row button{border:0;background:transparent;color:var(--forest);cursor:pointer;font-size:9px;font-weight:700}
+.planner-backlog-empty{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:11px}
+:root[data-theme="dark"] .planner-calendar,:root[data-theme="dark"] .planner-backlog{background:#171f19}
+:root[data-theme="dark"] .planner-week-actions button,:root[data-theme="dark"] .planner-day{background:#101711;color:var(--ink)}
+:root[data-theme="dark"] .planner-day.selected{background:var(--forest);color:#fff}
+@media(max-width:700px){.planner-calendar,.planner-backlog{padding:15px}.planner-week-grid{gap:4px}.planner-day{min-height:84px;gap:5px}.planner-day>strong{font-size:20px}.planner-day>small{font-size:7px}.planner-task-form{grid-template-columns:1fr 1fr}.planner-task-form>input:first-child{grid-column:1/-1}.planner-task-form .button{width:100%;justify-content:center}.planner-backlog-row{align-items:flex-start;padding:12px 0}.planner-backlog-row button{max-width:105px;text-align:right;line-height:1.4}}
