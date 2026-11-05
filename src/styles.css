@@ -647,7 +647,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ember); out
 .note-form textarea,.flashcard-form textarea{grid-column:1/-1;min-height:100px;resize:vertical;line-height:1.65}
 .note-form-footer{display:flex;grid-column:1/-1;align-items:center;justify-content:space-between;color:var(--muted);font-size:10px}
 .notes-search{display:flex;min-width:190px;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:7px 0;color:var(--muted)}
-.notes-search input{width:100%;border:0;outline:0;background:transparent;color:var(--ink);font:inherit;font-size:10px}
+.notes-search input{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;font-size:10px}.notes-search input:focus-visible{outline:2px solid var(--ember);outline-offset:3px}
 .notes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 .note-card{min-width:0;border:1px solid var(--line);padding:18px;background:var(--paper-soft)}
 .note-card-meta{display:flex;align-items:center;justify-content:space-between;color:var(--ember);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
@@ -671,7 +671,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ember); out
 :root[data-theme="dark"] .note-form input,:root[data-theme="dark"] .note-form select,:root[data-theme="dark"] .note-form textarea,:root[data-theme="dark"] .flashcard-form input,:root[data-theme="dark"] .flashcard-form textarea,:root[data-theme="dark"] .flashcard-form select{border-color:var(--line);background:#101711;color:var(--ink)}
 :root[data-theme="dark"] .study-flashcard{background:linear-gradient(145deg,#202b22,#17221a);color:var(--ink)}
 :root[data-theme="dark"] .study-flashcard.flipped{background:linear-gradient(145deg,#25372b,#1b2a20)}
-@media(max-width:700px){.note-composer,.flashcard-study{padding:17px}.note-form{grid-template-columns:1fr}.note-form input,.note-form select,.note-form textarea{grid-column:1}.notes-grid{grid-template-columns:1fr}.notes-search{min-width:130px}.study-flashcard{min-height:210px;padding:22px}}
+@media(max-width:700px){.note-composer,.flashcard-study{padding:17px}.note-form,.flashcard-form{grid-template-columns:1fr}.note-form input,.note-form select,.note-form textarea,.flashcard-form input,.flashcard-form textarea,.flashcard-form select{grid-column:1}.notes-grid{grid-template-columns:1fr}.notes-search{min-width:130px}.study-flashcard{min-height:210px;padding:22px}}
 
 
 /* Spaced-repetition revision studio */
