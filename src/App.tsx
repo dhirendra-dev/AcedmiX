@@ -28,9 +28,10 @@ import {
   X,
   ChartNoAxesColumnIncreasing,
   CalendarDays, Timer, Plus, Pause, RotateCcw, Target, Sun, Moon, Bookmark, BookmarkCheck,
+  NotebookPen, StickyNote, Layers3, RotateCw, Trash2,
 } from 'lucide-react';
 
-type Page = 'welcome' | 'home' | 'library' | 'course' | 'progress' | 'profile' | 'planner' | 'focus' | 'practice';
+type Page = 'welcome' | 'home' | 'library' | 'course' | 'progress' | 'profile' | 'planner' | 'focus' | 'practice' | 'notes';
 type Category = 'All' | 'Mathematics' | 'Science' | 'Technology' | 'Languages' | 'Study skills';
 
 type Lesson = {
@@ -139,6 +140,7 @@ const navItems: { page: Exclude<Page, 'welcome' | 'course'>; label: string; icon
   { page: 'home', label: 'Home', icon: Compass },
   { page: 'library', label: 'Library', icon: Library },
   { page: 'practice', label: 'Practice', icon: Trophy },
+  { page: 'notes', label: 'Notes', icon: NotebookPen },
   { page: 'planner', label: 'Planner', icon: CalendarDays },
   { page: 'focus', label: 'Focus', icon: Timer },
   { page: 'progress', label: 'Progress', icon: ChartNoAxesColumnIncreasing },
@@ -147,6 +149,8 @@ const navItems: { page: Exclude<Page, 'welcome' | 'course'>; label: string; icon
 
 type StudyTask = { id: string; title: string; subject: string; done: boolean };
 type QuizQuestion = { id: string; subject: string; prompt: string; options: string[]; answer: number; explanation: string };
+type StudyNote = { id: string; title: string; body: string; subject: string; updatedAt: number };
+type Flashcard = { id: string; front: string; back: string; subject: string };
 const quizQuestions: QuizQuestion[] = [
   { id: 'q1', subject: 'Mathematics', prompt: 'What is the value of 3² + 4²?', options: ['12', '25', '49', '7'], answer: 1, explanation: '3² = 9 and 4² = 16. Adding them gives 25.' },
   { id: 'q2', subject: 'Science', prompt: 'Which unit is used to measure force?', options: ['Joule', 'Watt', 'Newton', 'Pascal'], answer: 2, explanation: 'Force is measured in newtons (N), named after Isaac Newton.' },
@@ -168,6 +172,8 @@ function readTasks(): StudyTask[] {
 }
 
 const defaultCourseId = 'study-habits';
+function readNotes(): StudyNote[] { try { const v: unknown = JSON.parse(window.localStorage.getItem('acedmix-notes') || '[]'); return Array.isArray(v) ? v.filter((x): x is StudyNote => x && typeof x.id === 'string' && typeof x.title === 'string' && typeof x.body === 'string' && typeof x.subject === 'string' && typeof x.updatedAt === 'number') : []; } catch { return []; } }
+function readFlashcards(): Flashcard[] { try { const v: unknown = JSON.parse(window.localStorage.getItem('acedmix-flashcards') || '[]'); return Array.isArray(v) ? v.filter((x): x is Flashcard => x && typeof x.id === 'string' && typeof x.front === 'string' && typeof x.back === 'string' && typeof x.subject === 'string') : []; } catch { return []; } }
 
 function readCompleted(): string[] {
   try {
@@ -216,6 +222,9 @@ function App() {
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizBestScore, setQuizBestScore] = useState(() => Number(window.localStorage.getItem('acedmix-quiz-best') || 0));
+  const [notes, setNotes] = useState<StudyNote[]>(readNotes);
+  const [noteTitle, setNoteTitle] = useState(''); const [noteBody, setNoteBody] = useState(''); const [noteSubject, setNoteSubject] = useState('General'); const [noteSearch, setNoteSearch] = useState('');
+  const [flashcards, setFlashcards] = useState<Flashcard[]>(readFlashcards); const [cardFront, setCardFront] = useState(''); const [cardBack, setCardBack] = useState(''); const [cardSubject, setCardSubject] = useState('General'); const [activeCard, setActiveCard] = useState(0); const [cardFlipped, setCardFlipped] = useState(false); const [notesTab, setNotesTab] = useState<'notes' | 'flashcards'>('notes');
 
   useEffect(() => {
     window.localStorage.setItem('acedmix-completed-lessons', JSON.stringify(completedLessons));
@@ -224,6 +233,8 @@ function App() {
   useEffect(() => { window.localStorage.setItem('acedmix-saved-courses', JSON.stringify(savedCourseIds)); }, [savedCourseIds]);
   useEffect(() => { window.localStorage.setItem('acedmix-focus-sessions', String(focusSessions)); }, [focusSessions]);
   useEffect(() => { window.localStorage.setItem('acedmix-quiz-best', String(quizBestScore)); }, [quizBestScore]);
+  useEffect(() => { window.localStorage.setItem('acedmix-notes', JSON.stringify(notes)); }, [notes]);
+  useEffect(() => { window.localStorage.setItem('acedmix-flashcards', JSON.stringify(flashcards)); }, [flashcards]);
   useEffect(() => {
     if (!timerRunning) return;
     const timer = window.setInterval(() => setSecondsLeft((current) => Math.max(0, current - 1)), 1000);
@@ -314,6 +325,8 @@ function App() {
     setQuizBestScore((best) => Math.max(best, Math.round((quizScore / quizQuestions.length) * 100)));
   };
   const resetQuiz = () => { setQuizAnswers({}); setQuizSubmitted(false); };
+  const addNote = () => { const title = noteTitle.trim(), body = noteBody.trim(); if (!title || !body) { setToast('Add a title and a few note details first'); return; } setNotes((items) => [{ id: 'note-' + Date.now(), title, body, subject: noteSubject, updatedAt: Date.now() }, ...items]); setNoteTitle(''); setNoteBody(''); setToast('Note saved on this device'); };
+  const addFlashcard = () => { const front = cardFront.trim(), back = cardBack.trim(); if (!front || !back) { setToast('Add both sides of your flashcard'); return; } setFlashcards((items) => [...items, { id: 'card-' + Date.now(), front, back, subject: cardSubject }]); setCardFront(''); setCardBack(''); setToast('Flashcard added to your deck'); };
   const resetProgress = () => {
     setCompletedLessons([]);
     setToast('Demo progress has been reset');
@@ -468,6 +481,21 @@ function App() {
               <section className="quiz-overview"><div><span className="section-overline">YOUR PERSONAL BEST</span><strong>{quizBestScore}<small>%</small></strong><p>Best score saved on this device</p></div><div className="quiz-overview-meta"><span>{quizQuestions.length} questions</span><span>About 5 minutes</span><span>Instant explanations</span></div></section>
               <section className="quiz-list">{quizQuestions.map((question, index) => <article className={`quiz-question ${quizSubmitted ? (quizAnswers[question.id] === question.answer ? 'is-correct' : 'is-incorrect') : ''}`} key={question.id}><div className="quiz-question-meta"><span>QUESTION {String(index + 1).padStart(2, '0')}</span><span>{question.subject}</span></div><h2>{question.prompt}</h2><div className="quiz-options">{question.options.map((option, optionIndex) => <button key={option} type="button" disabled={quizSubmitted} className={`quiz-option ${quizAnswers[question.id] === optionIndex ? 'chosen' : ''} ${quizSubmitted && optionIndex === question.answer ? 'correct-option' : ''} ${quizSubmitted && quizAnswers[question.id] === optionIndex && optionIndex !== question.answer ? 'wrong-option' : ''}`} onClick={() => setQuizAnswers((current) => ({ ...current, [question.id]: optionIndex }))}><span className="quiz-option-letter">{String.fromCharCode(65 + optionIndex)}</span>{option}{quizSubmitted && optionIndex === question.answer && <Check size={16} />}</button>)}</div>{quizSubmitted && <div className="quiz-explanation"><strong>{quizAnswers[question.id] === question.answer ? 'That’s right.' : 'Here’s the idea.'}</strong><p>{question.explanation}</p></div>}</article>)}</section>
               <div className="quiz-submit-row">{quizSubmitted ? <div className="quiz-result"><strong>{quizScore} / {quizQuestions.length} correct</strong><span>{Math.round(quizScore / quizQuestions.length * 100)}% · {quizScore === quizQuestions.length ? 'Perfect round!' : 'Every attempt teaches you something.'}</span></div> : <span className="quiet-label">{Object.keys(quizAnswers).length} OF {quizQuestions.length} ANSWERED</span>}<button className="button button-dark" type="button" onClick={quizSubmitted ? resetQuiz : submitQuiz}>{quizSubmitted ? 'Try again' : 'Check answers'} <ArrowRight size={16} /></button></div>
+            </>
+          )}
+
+          {page === 'notes' && (
+            <>
+              <section className="page-heading-row"><div><p className="eyebrow">CAPTURE IT. CONNECT IT. REMEMBER IT.</p><h1>Your learning <em>desk.</em></h1><p className="intro-subtitle">Keep useful ideas close and turn key facts into active recall.</p></div><div className="library-stamp"><NotebookPen size={24} /><span>THINK<br />ON PAPER</span></div></section>
+              <div className="notes-tabs"><button type="button" className={notesTab === 'notes' ? 'active' : ''} onClick={() => setNotesTab('notes')}><StickyNote size={16} /> Notes <span>{notes.length}</span></button><button type="button" className={notesTab === 'flashcards' ? 'active' : ''} onClick={() => setNotesTab('flashcards')}><Layers3 size={16} /> Flashcards <span>{flashcards.length}</span></button></div>
+              {notesTab === 'notes' ? <>
+                <section className="note-composer"><div className="section-heading"><div><p className="eyebrow">QUICK CAPTURE</p><h2>Save an idea</h2></div><span className="quiet-label">PRIVATE TO THIS DEVICE</span></div><form className="note-form" onSubmit={(e) => { e.preventDefault(); addNote(); }}><input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder="Give this note a clear title" aria-label="Note title" maxLength={90} /><select value={noteSubject} onChange={(e) => setNoteSubject(e.target.value)} aria-label="Note subject"><option>General</option><option>Mathematics</option><option>Science</option><option>Technology</option><option>Revision</option></select><textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} placeholder="Write a definition, question, worked idea, or something to remember..." aria-label="Note content" rows={4} /><div className="note-form-footer"><span>{noteBody.length} characters</span><button className="button button-dark" type="submit"><Plus size={16} /> Save note</button></div></form></section>
+                <section className="section-block"><div className="section-heading"><div><p className="eyebrow">YOUR KNOWLEDGE SHELF</p><h2>Saved notes</h2></div><label className="notes-search"><Search size={15} /><input value={noteSearch} onChange={(e) => setNoteSearch(e.target.value)} placeholder="Search your notes" aria-label="Search notes" /></label></div><div className="notes-grid">{notes.filter((n) => (n.title + ' ' + n.body + ' ' + n.subject).toLowerCase().includes(noteSearch.toLowerCase())).map((n) => <article className="note-card" key={n.id}><div className="note-card-meta"><span>{n.subject}</span><button type="button" aria-label={'Delete ' + n.title} onClick={() => setNotes((items) => items.filter((x) => x.id !== n.id))}><Trash2 size={15} /></button></div><h3>{n.title}</h3><p>{n.body}</p><small>Updated {new Date(n.updatedAt).toLocaleDateString()}</small></article>)}{notes.length === 0 && <div className="empty-state"><NotebookPen size={28} /><h3>Your ideas have a home.</h3><p>Save your first note above.</p></div>}</div></section>
+              </> : <>
+                <section className="note-composer"><div className="section-heading"><div><p className="eyebrow">BUILD ACTIVE RECALL</p><h2>Create a flashcard</h2></div><span className="quiet-label">QUESTION → ANSWER</span></div><form className="flashcard-form" onSubmit={(e) => { e.preventDefault(); addFlashcard(); }}><input value={cardFront} onChange={(e) => setCardFront(e.target.value)} placeholder="Front · Ask a question" aria-label="Flashcard question" maxLength={180} /><textarea value={cardBack} onChange={(e) => setCardBack(e.target.value)} placeholder="Back · Write the answer or explanation" aria-label="Flashcard answer" rows={3} /><div className="note-form-footer"><select value={cardSubject} onChange={(e) => setCardSubject(e.target.value)} aria-label="Flashcard subject"><option>General</option><option>Mathematics</option><option>Science</option><option>Technology</option><option>Revision</option></select><button className="button button-dark" type="submit"><Plus size={16} /> Add card</button></div></form></section>
+                <section className="flashcard-study"><div className="section-heading"><div><p className="eyebrow">RETRIEVAL PRACTICE</p><h2>Review your deck</h2></div><span className="quiet-label">{flashcards.length ? (activeCard + 1) + ' OF ' + flashcards.length : 'YOUR DECK IS EMPTY'}</span></div>{flashcards.length ? <><button type="button" className={'study-flashcard ' + (cardFlipped ? 'flipped' : '')} onClick={() => setCardFlipped((v) => !v)}><span className="study-card-label">{cardFlipped ? 'ANSWER' : 'QUESTION'} · {flashcards[activeCard]?.subject}</span><strong>{cardFlipped ? flashcards[activeCard]?.back : flashcards[activeCard]?.front}</strong><span className="study-card-hint"><RotateCw size={15} /> Tap to {cardFlipped ? 'see question' : 'reveal answer'}</span></button><div className="flashcard-controls"><button type="button" className="focus-reset" onClick={() => { setActiveCard((v) => (v - 1 + flashcards.length) % flashcards.length); setCardFlipped(false); }}><ArrowLeft size={16} /> Previous</button><button type="button" className="button button-dark" onClick={() => { setActiveCard((v) => (v + 1) % flashcards.length); setCardFlipped(false); }}>Next card <ArrowRight size={16} /></button></div><div className="flashcard-deck-list">{flashcards.map((card, i) => <div key={card.id}><span>{String(i + 1).padStart(2, '0')}</span><p>{card.front}</p><button type="button" aria-label="Delete flashcard" onClick={() => { setFlashcards((items) => items.filter((x) => x.id !== card.id)); setActiveCard(0); setCardFlipped(false); }}><Trash2 size={14} /></button></div>)}</div></> : <div className="empty-state"><Layers3 size={28} /><h3>Build your first deck.</h3><p>Turn important definitions and concepts into quick recall cards.</p></div>}</section>
+              </>}
+              <p className="notes-privacy"><Sparkles size={15} /> Notes and flashcards are saved locally in this browser. They are not synced to an account or cloud.</p>
             </>
           )}
 

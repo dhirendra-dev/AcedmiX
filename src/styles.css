@@ -634,3 +634,41 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ember); out
 :root[data-theme="dark"] .quiz-option.correct-option{background:#1e3926;color:#bfe2c5}
 :root[data-theme="dark"] .quiz-option.wrong-option{background:#3b2520;color:#f0b6a9}
 @media(max-width:700px){.quiz-overview{align-items:flex-start;flex-direction:column;padding:20px}.quiz-options{grid-template-columns:1fr}.quiz-question{padding:19px}.quiz-question h2{font-size:20px}.quiz-submit-row{align-items:flex-start;flex-direction:column}.quiz-submit-row .button{width:100%;justify-content:center}}
+
+
+/* Learning desk */
+.notes-tabs{display:flex;gap:8px;margin:30px 0 22px;border-bottom:1px solid var(--line)}
+.notes-tabs button{display:inline-flex;align-items:center;gap:9px;border:0;border-bottom:2px solid transparent;padding:13px 15px;background:transparent;color:var(--muted);cursor:pointer;font-size:11px}
+.notes-tabs button.active{border-bottom-color:var(--ember);color:var(--ink);font-weight:700}
+.notes-tabs button span{display:grid;min-width:20px;height:20px;place-items:center;border-radius:20px;background:var(--paper-deep);font-size:9px}
+.note-composer,.flashcard-study{border:1px solid var(--line);padding:24px;background:var(--paper-soft)}
+.note-form,.flashcard-form{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:10px;margin-top:18px}
+.note-form input,.note-form select,.note-form textarea,.flashcard-form input,.flashcard-form textarea,.flashcard-form select{width:100%;min-width:0;border:1px solid var(--line);border-radius:2px;padding:12px 13px;background:var(--paper);color:var(--ink);font:inherit;font-size:11px}
+.note-form textarea,.flashcard-form textarea{grid-column:1/-1;min-height:100px;resize:vertical;line-height:1.65}
+.note-form-footer{display:flex;grid-column:1/-1;align-items:center;justify-content:space-between;color:var(--muted);font-size:10px}
+.notes-search{display:flex;min-width:190px;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:7px 0;color:var(--muted)}
+.notes-search input{width:100%;border:0;outline:0;background:transparent;color:var(--ink);font:inherit;font-size:10px}
+.notes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.note-card{min-width:0;border:1px solid var(--line);padding:18px;background:var(--paper-soft)}
+.note-card-meta{display:flex;align-items:center;justify-content:space-between;color:var(--ember);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.note-card-meta button,.flashcard-deck-list button{display:grid;width:30px;height:30px;place-items:center;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.note-card h3{margin:10px 0 7px;font-family:var(--serif);font-size:21px;font-weight:500}
+.note-card p{margin:0 0 18px;color:var(--muted);font-size:11px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.note-card>small{color:#9b9185;font-size:9px}
+.flashcard-study{margin-top:28px}
+.study-flashcard{display:flex;width:100%;min-height:245px;flex-direction:column;align-items:center;justify-content:center;gap:24px;border:1px solid var(--line);padding:30px;background:linear-gradient(145deg,var(--paper),var(--paper-deep));color:var(--ink);cursor:pointer;text-align:center}
+.study-flashcard.flipped{background:linear-gradient(145deg,#e6eee6,#d6e1d7)}
+.study-card-label{color:var(--ember);font-size:9px;font-weight:700;letter-spacing:1.5px}
+.study-flashcard strong{max-width:620px;font-family:var(--serif);font-size:clamp(22px,3vw,34px);font-weight:500;line-height:1.35;white-space:pre-wrap}
+.study-card-hint{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:10px}
+.flashcard-controls{display:flex;justify-content:space-between;margin:14px 0 20px}
+.flashcard-deck-list{border-top:1px solid var(--line)}
+.flashcard-deck-list>div{display:flex;min-height:48px;align-items:center;gap:13px;border-bottom:1px solid var(--line)}
+.flashcard-deck-list>div>span{color:var(--ember);font-size:9px}
+.flashcard-deck-list p{flex:1;overflow:hidden;margin:0;color:var(--ink);font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.notes-privacy{display:flex;align-items:center;gap:8px;margin:22px 0 0;color:var(--muted);font-size:10px}
+:root[data-theme="dark"] .note-composer,:root[data-theme="dark"] .flashcard-study,:root[data-theme="dark"] .note-card{background:#171f19}
+:root[data-theme="dark"] .note-form input,:root[data-theme="dark"] .note-form select,:root[data-theme="dark"] .note-form textarea,:root[data-theme="dark"] .flashcard-form input,:root[data-theme="dark"] .flashcard-form textarea,:root[data-theme="dark"] .flashcard-form select{border-color:var(--line);background:#101711;color:var(--ink)}
+:root[data-theme="dark"] .study-flashcard{background:linear-gradient(145deg,#202b22,#17221a);color:var(--ink)}
+:root[data-theme="dark"] .study-flashcard.flipped{background:linear-gradient(145deg,#25372b,#1b2a20)}
+@media(max-width:700px){.note-composer,.flashcard-study{padding:17px}.note-form{grid-template-columns:1fr}.note-form input,.note-form select,.note-form textarea{grid-column:1}.notes-grid{grid-template-columns:1fr}.notes-search{min-width:130px}.study-flashcard{min-height:210px;padding:22px}}
