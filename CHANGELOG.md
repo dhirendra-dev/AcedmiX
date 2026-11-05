@@ -17,3 +17,11 @@
 - Added answer selection, completion validation, instant explanations, and score feedback.
 - Persisted the learner's best quiz percentage locally.
 - Added responsive editorial quiz cards and dark-theme states.
+
+
+## 1.3.0 — Learning desk
+
+- Added searchable subject-tagged study notes with local persistence and deletion.
+- Added flashcard creation, answer reveal, and previous/next active-recall review.
+- Added responsive light and dark styling for the learning desk.
+- Clarified that notes and flashcards are stored only in the current browser.
