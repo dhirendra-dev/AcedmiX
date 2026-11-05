@@ -25,3 +25,11 @@
 - Added flashcard creation, answer reveal, and previous/next active-recall review.
 - Added responsive light and dark styling for the learning desk.
 - Clarified that notes and flashcards are stored only in the current browser.
+
+
+## 1.4.0 — Revision studio
+
+- Added a spaced-repetition review workspace for flashcards.
+- Added Again, Hard, Good, and Easy ratings to schedule future reviews.
+- Migrated existing flashcards to include review metadata without losing saved cards.
+- Added due-now counts, upcoming review queue, and responsive light/dark styles.

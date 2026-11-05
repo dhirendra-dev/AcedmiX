@@ -28,10 +28,10 @@ import {
   X,
   ChartNoAxesColumnIncreasing,
   CalendarDays, Timer, Plus, Pause, RotateCcw, Target, Sun, Moon, Bookmark, BookmarkCheck,
-  NotebookPen, StickyNote, Layers3, RotateCw, Trash2,
+  NotebookPen, StickyNote, Layers3, RotateCw, Trash2, BrainCircuit, CalendarClock, CheckCircle2,
 } from 'lucide-react';
 
-type Page = 'welcome' | 'home' | 'library' | 'course' | 'progress' | 'profile' | 'planner' | 'focus' | 'practice' | 'notes';
+type Page = 'welcome' | 'home' | 'library' | 'course' | 'progress' | 'profile' | 'planner' | 'focus' | 'practice' | 'notes' | 'revision';
 type Category = 'All' | 'Mathematics' | 'Science' | 'Technology' | 'Languages' | 'Study skills';
 
 type Lesson = {
@@ -141,6 +141,7 @@ const navItems: { page: Exclude<Page, 'welcome' | 'course'>; label: string; icon
   { page: 'library', label: 'Library', icon: Library },
   { page: 'practice', label: 'Practice', icon: Trophy },
   { page: 'notes', label: 'Notes', icon: NotebookPen },
+  { page: 'revision', label: 'Revision', icon: BrainCircuit },
   { page: 'planner', label: 'Planner', icon: CalendarDays },
   { page: 'focus', label: 'Focus', icon: Timer },
   { page: 'progress', label: 'Progress', icon: ChartNoAxesColumnIncreasing },
@@ -150,7 +151,7 @@ const navItems: { page: Exclude<Page, 'welcome' | 'course'>; label: string; icon
 type StudyTask = { id: string; title: string; subject: string; done: boolean };
 type QuizQuestion = { id: string; subject: string; prompt: string; options: string[]; answer: number; explanation: string };
 type StudyNote = { id: string; title: string; body: string; subject: string; updatedAt: number };
-type Flashcard = { id: string; front: string; back: string; subject: string };
+type Flashcard = { id: string; front: string; back: string; subject: string; dueAt: number; intervalDays: number; repetitions: number };
 const quizQuestions: QuizQuestion[] = [
   { id: 'q1', subject: 'Mathematics', prompt: 'What is the value of 3² + 4²?', options: ['12', '25', '49', '7'], answer: 1, explanation: '3² = 9 and 4² = 16. Adding them gives 25.' },
   { id: 'q2', subject: 'Science', prompt: 'Which unit is used to measure force?', options: ['Joule', 'Watt', 'Newton', 'Pascal'], answer: 2, explanation: 'Force is measured in newtons (N), named after Isaac Newton.' },
@@ -173,7 +174,7 @@ function readTasks(): StudyTask[] {
 
 const defaultCourseId = 'study-habits';
 function readNotes(): StudyNote[] { try { const v: unknown = JSON.parse(window.localStorage.getItem('acedmix-notes') || '[]'); return Array.isArray(v) ? v.filter((x): x is StudyNote => x && typeof x.id === 'string' && typeof x.title === 'string' && typeof x.body === 'string' && typeof x.subject === 'string' && typeof x.updatedAt === 'number') : []; } catch { return []; } }
-function readFlashcards(): Flashcard[] { try { const v: unknown = JSON.parse(window.localStorage.getItem('acedmix-flashcards') || '[]'); return Array.isArray(v) ? v.filter((x): x is Flashcard => x && typeof x.id === 'string' && typeof x.front === 'string' && typeof x.back === 'string' && typeof x.subject === 'string') : []; } catch { return []; } }
+function readFlashcards(): Flashcard[] { try { const v: unknown = JSON.parse(window.localStorage.getItem('acedmix-flashcards') || '[]'); return Array.isArray(v) ? v.filter((x) => x && typeof x.id === 'string' && typeof x.front === 'string' && typeof x.back === 'string' && typeof x.subject === 'string').map((x) => ({ id: x.id, front: x.front, back: x.back, subject: x.subject, dueAt: typeof x.dueAt === 'number' ? x.dueAt : Date.now(), intervalDays: typeof x.intervalDays === 'number' ? x.intervalDays : 0, repetitions: typeof x.repetitions === 'number' ? x.repetitions : 0 })) : []; } catch { return []; } }
 
 function readCompleted(): string[] {
   try {
@@ -224,7 +225,7 @@ function App() {
   const [quizBestScore, setQuizBestScore] = useState(() => Number(window.localStorage.getItem('acedmix-quiz-best') || 0));
   const [notes, setNotes] = useState<StudyNote[]>(readNotes);
   const [noteTitle, setNoteTitle] = useState(''); const [noteBody, setNoteBody] = useState(''); const [noteSubject, setNoteSubject] = useState('General'); const [noteSearch, setNoteSearch] = useState('');
-  const [flashcards, setFlashcards] = useState<Flashcard[]>(readFlashcards); const [cardFront, setCardFront] = useState(''); const [cardBack, setCardBack] = useState(''); const [cardSubject, setCardSubject] = useState('General'); const [activeCard, setActiveCard] = useState(0); const [cardFlipped, setCardFlipped] = useState(false); const [notesTab, setNotesTab] = useState<'notes' | 'flashcards'>('notes');
+  const [flashcards, setFlashcards] = useState<Flashcard[]>(readFlashcards); const [cardFront, setCardFront] = useState(''); const [cardBack, setCardBack] = useState(''); const [cardSubject, setCardSubject] = useState('General'); const [activeCard, setActiveCard] = useState(0); const [cardFlipped, setCardFlipped] = useState(false); const [notesTab, setNotesTab] = useState<'notes' | 'flashcards'>('notes'); const [revisionIndex, setRevisionIndex] = useState(0); const [revisionFlipped, setRevisionFlipped] = useState(false);
 
   useEffect(() => {
     window.localStorage.setItem('acedmix-completed-lessons', JSON.stringify(completedLessons));
@@ -326,7 +327,10 @@ function App() {
   };
   const resetQuiz = () => { setQuizAnswers({}); setQuizSubmitted(false); };
   const addNote = () => { const title = noteTitle.trim(), body = noteBody.trim(); if (!title || !body) { setToast('Add a title and a few note details first'); return; } setNotes((items) => [{ id: 'note-' + Date.now(), title, body, subject: noteSubject, updatedAt: Date.now() }, ...items]); setNoteTitle(''); setNoteBody(''); setToast('Note saved on this device'); };
-  const addFlashcard = () => { const front = cardFront.trim(), back = cardBack.trim(); if (!front || !back) { setToast('Add both sides of your flashcard'); return; } setFlashcards((items) => [...items, { id: 'card-' + Date.now(), front, back, subject: cardSubject }]); setCardFront(''); setCardBack(''); setToast('Flashcard added to your deck'); };
+  const addFlashcard = () => { const front = cardFront.trim(), back = cardBack.trim(); if (!front || !back) { setToast('Add both sides of your flashcard'); return; } setFlashcards((items) => [...items, { id: 'card-' + Date.now(), front, back, subject: cardSubject, dueAt: Date.now(), intervalDays: 0, repetitions: 0 }]); setCardFront(''); setCardBack(''); setToast('Flashcard added to your deck'); };
+  const dueFlashcards = flashcards.filter((card) => card.dueAt <= Date.now());
+  const reviewCard = dueFlashcards[revisionIndex % Math.max(dueFlashcards.length, 1)];
+  const gradeReview = (rating: 'again' | 'hard' | 'good' | 'easy') => { if (!reviewCard) return; const nextInterval = rating === 'again' ? 0 : rating === 'hard' ? Math.max(1, reviewCard.intervalDays || 1) : rating === 'good' ? Math.max(1, Math.round((reviewCard.intervalDays || 1) * 2)) : Math.max(3, Math.round((reviewCard.intervalDays || 1) * 3)); const dueAt = rating === 'again' ? Date.now() + 10 * 60 * 1000 : Date.now() + nextInterval * 86400000; setFlashcards((items) => items.map((card) => card.id === reviewCard.id ? { ...card, dueAt, intervalDays: nextInterval, repetitions: rating === 'again' ? 0 : card.repetitions + 1 } : card)); setRevisionFlipped(false); setRevisionIndex((index) => index + 1); setToast(rating === 'again' ? 'We will revisit this card in 10 minutes' : 'Review scheduled. Keep going!'); };
   const resetProgress = () => {
     setCompletedLessons([]);
     setToast('Demo progress has been reset');
@@ -481,6 +485,16 @@ function App() {
               <section className="quiz-overview"><div><span className="section-overline">YOUR PERSONAL BEST</span><strong>{quizBestScore}<small>%</small></strong><p>Best score saved on this device</p></div><div className="quiz-overview-meta"><span>{quizQuestions.length} questions</span><span>About 5 minutes</span><span>Instant explanations</span></div></section>
               <section className="quiz-list">{quizQuestions.map((question, index) => <article className={`quiz-question ${quizSubmitted ? (quizAnswers[question.id] === question.answer ? 'is-correct' : 'is-incorrect') : ''}`} key={question.id}><div className="quiz-question-meta"><span>QUESTION {String(index + 1).padStart(2, '0')}</span><span>{question.subject}</span></div><h2>{question.prompt}</h2><div className="quiz-options">{question.options.map((option, optionIndex) => <button key={option} type="button" disabled={quizSubmitted} className={`quiz-option ${quizAnswers[question.id] === optionIndex ? 'chosen' : ''} ${quizSubmitted && optionIndex === question.answer ? 'correct-option' : ''} ${quizSubmitted && quizAnswers[question.id] === optionIndex && optionIndex !== question.answer ? 'wrong-option' : ''}`} onClick={() => setQuizAnswers((current) => ({ ...current, [question.id]: optionIndex }))}><span className="quiz-option-letter">{String.fromCharCode(65 + optionIndex)}</span>{option}{quizSubmitted && optionIndex === question.answer && <Check size={16} />}</button>)}</div>{quizSubmitted && <div className="quiz-explanation"><strong>{quizAnswers[question.id] === question.answer ? 'That’s right.' : 'Here’s the idea.'}</strong><p>{question.explanation}</p></div>}</article>)}</section>
               <div className="quiz-submit-row">{quizSubmitted ? <div className="quiz-result"><strong>{quizScore} / {quizQuestions.length} correct</strong><span>{Math.round(quizScore / quizQuestions.length * 100)}% · {quizScore === quizQuestions.length ? 'Perfect round!' : 'Every attempt teaches you something.'}</span></div> : <span className="quiet-label">{Object.keys(quizAnswers).length} OF {quizQuestions.length} ANSWERED</span>}<button className="button button-dark" type="button" onClick={quizSubmitted ? resetQuiz : submitQuiz}>{quizSubmitted ? 'Try again' : 'Check answers'} <ArrowRight size={16} /></button></div>
+            </>
+          )}
+
+          {page === 'revision' && (
+            <>
+              <section className="page-heading-row"><div><p className="eyebrow">SMALL REVIEWS. STRONGER MEMORY.</p><h1>Revision <em>studio.</em></h1><p className="intro-subtitle">Bring each idea back just before it fades. Your deck sets the pace.</p></div><div className="library-stamp"><BrainCircuit size={24} /><span>ACTIVE<br />RECALL</span></div></section>
+              <section className="revision-overview"><div><span className="section-overline">READY TO REVIEW</span><strong>{dueFlashcards.length}</strong><p>cards due now</p></div><div><span className="section-overline">IN YOUR DECK</span><strong>{flashcards.length}</strong><p>total flashcards</p></div><div><span className="section-overline">UP NEXT</span><strong>{flashcards.filter((card) => card.dueAt > Date.now()).length}</strong><p>scheduled for later</p></div></section>
+              {reviewCard ? <section className="revision-session"><div className="section-heading"><div><p className="eyebrow">CARD {revisionIndex + 1} · {reviewCard.subject.toUpperCase()}</p><h2>What can you recall?</h2></div><span className="quiet-label">{dueFlashcards.length} DUE</span></div><button type="button" className={'study-flashcard revision-card ' + (revisionFlipped ? 'flipped' : '')} onClick={() => setRevisionFlipped((value) => !value)}><span className="study-card-label">{revisionFlipped ? 'ANSWER' : 'QUESTION'}</span><strong>{revisionFlipped ? reviewCard.back : reviewCard.front}</strong><span className="study-card-hint"><RotateCw size={15} /> Tap to {revisionFlipped ? 'hide answer' : 'reveal answer'}</span></button>{revisionFlipped ? <div className="revision-grades"><p>How well did you remember?</p><div><button type="button" onClick={() => gradeReview('again')}><strong>Again</strong><small>10 min</small></button><button type="button" onClick={() => gradeReview('hard')}><strong>Hard</strong><small>1 day</small></button><button type="button" onClick={() => gradeReview('good')}><strong>Good</strong><small>2 days+</small></button><button type="button" onClick={() => gradeReview('easy')}><strong>Easy</strong><small>3 days+</small></button></div></div> : <p className="revision-prompt">Try to answer from memory before revealing the back of the card.</p>}</section> : <div className="revision-empty"><CheckCircle2 size={32} /><h2>{flashcards.length ? 'You are all caught up.' : 'Your revision deck is waiting.'}</h2><p>{flashcards.length ? 'No cards are due right now. Your next reviews are scheduled automatically.' : 'Create flashcards in your Notes workspace, then come here to review them.'}</p><button type="button" className="button button-dark" onClick={() => navigate('notes')}>{flashcards.length ? 'Back to your learning desk' : 'Create your first flashcard'} <ArrowRight size={16} /></button></div>}
+              <section className="revision-schedule"><div className="section-heading"><div><p className="eyebrow">YOUR MEMORY QUEUE</p><h2>Coming up</h2></div><span className="quiet-label">AUTOMATIC SCHEDULE</span></div>{flashcards.slice().sort((a,b) => a.dueAt-b.dueAt).slice(0,6).map((card) => <div className="revision-queue-row" key={card.id}><span className="revision-queue-icon"><CalendarClock size={16} /></span><div><strong>{card.front}</strong><small>{card.subject}</small></div><time>{card.dueAt <= Date.now() ? 'Due now' : new Date(card.dueAt).toLocaleDateString()}</time></div>)}{flashcards.length === 0 && <p className="revision-prompt">Your saved flashcards will appear here.</p>}</section>
+              <p className="notes-privacy"><Sparkles size={15} /> Reviews are stored locally in this browser. This is a simple spaced-repetition schedule, not a cloud-synced study record.</p>
             </>
           )}
 
