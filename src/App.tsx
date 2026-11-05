@@ -28,10 +28,10 @@ import {
   X,
   ChartNoAxesColumnIncreasing,
   CalendarDays, Timer, Plus, Pause, RotateCcw, Target, Sun, Moon, Bookmark, BookmarkCheck,
-  NotebookPen, StickyNote, Layers3, RotateCw, Trash2,
+  NotebookPen, StickyNote, Layers3, RotateCw, Trash2, BrainCircuit, CalendarClock, CheckCircle2,
 } from 'lucide-react';
 
-type Page = 'welcome' | 'home' | 'library' | 'course' | 'progress' | 'profile' | 'planner' | 'focus' | 'practice' | 'notes';
+type Page = 'welcome' | 'home' | 'library' | 'course' | 'progress' | 'profile' | 'planner' | 'focus' | 'practice' | 'notes' | 'revision';
 type Category = 'All' | 'Mathematics' | 'Science' | 'Technology' | 'Languages' | 'Study skills';
 
 type Lesson = {
@@ -141,16 +141,17 @@ const navItems: { page: Exclude<Page, 'welcome' | 'course'>; label: string; icon
   { page: 'library', label: 'Library', icon: Library },
   { page: 'practice', label: 'Practice', icon: Trophy },
   { page: 'notes', label: 'Notes', icon: NotebookPen },
+  { page: 'revision', label: 'Revision', icon: BrainCircuit },
   { page: 'planner', label: 'Planner', icon: CalendarDays },
   { page: 'focus', label: 'Focus', icon: Timer },
   { page: 'progress', label: 'Progress', icon: ChartNoAxesColumnIncreasing },
   { page: 'profile', label: 'Profile', icon: UserRound },
 ];
 
-type StudyTask = { id: string; title: string; subject: string; done: boolean };
+type StudyTask = { id: string; title: string; subject: string; done: boolean; dueDate: string; priority: 'Low' | 'Normal' | 'High'; recurrence: 'None' | 'Daily' | 'Weekly'; completedDates: string[] };
 type QuizQuestion = { id: string; subject: string; prompt: string; options: string[]; answer: number; explanation: string };
 type StudyNote = { id: string; title: string; body: string; subject: string; updatedAt: number };
-type Flashcard = { id: string; front: string; back: string; subject: string };
+type Flashcard = { id: string; front: string; back: string; subject: string; dueAt: number; intervalDays: number; repetitions: number };
 const quizQuestions: QuizQuestion[] = [
   { id: 'q1', subject: 'Mathematics', prompt: 'What is the value of 3² + 4²?', options: ['12', '25', '49', '7'], answer: 1, explanation: '3² = 9 and 4² = 16. Adding them gives 25.' },
   { id: 'q2', subject: 'Science', prompt: 'Which unit is used to measure force?', options: ['Joule', 'Watt', 'Newton', 'Pascal'], answer: 2, explanation: 'Force is measured in newtons (N), named after Isaac Newton.' },
@@ -158,6 +159,12 @@ const quizQuestions: QuizQuestion[] = [
   { id: 'q4', subject: 'Mathematics', prompt: 'If x + 7 = 12, what is x?', options: ['19', '7', '5', '4'], answer: 2, explanation: 'Subtract 7 from both sides: x = 12 − 7 = 5.' },
   { id: 'q5', subject: 'Science', prompt: 'Which gas do plants absorb during photosynthesis?', options: ['Oxygen', 'Carbon dioxide', 'Nitrogen', 'Hydrogen'], answer: 1, explanation: 'Plants use carbon dioxide and water, with light energy, to make glucose.' },
 ];
+
+function localDateKey(date: Date): string { const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const d = String(date.getDate()).padStart(2, '0'); return `${y}-${m}-${d}`; }
+function shiftDate(dateKey: string, amount: number): string { const [y, m, d] = dateKey.split('-').map(Number); const date = new Date(y, m - 1, d); date.setDate(date.getDate() + amount); return localDateKey(date); }
+function weekStart(dateKey: string): string { const [y, m, d] = dateKey.split('-').map(Number); const date = new Date(y, m - 1, d); date.setDate(date.getDate() - ((date.getDay() + 6) % 7)); return localDateKey(date); }
+function taskOccursOn(task: StudyTask, dateKey: string): boolean { if (dateKey < task.dueDate) return false; if (task.recurrence === 'Daily') return true; if (task.recurrence === 'Weekly') { const [y, m, d] = task.dueDate.split('-').map(Number); const [yy, mm, dd] = dateKey.split('-').map(Number); return new Date(y, m - 1, d).getDay() === new Date(yy, mm - 1, dd).getDay(); } return dateKey === task.dueDate; }
+function taskIsDone(task: StudyTask, dateKey: string): boolean { return task.recurrence === 'None' ? task.done : task.completedDates.includes(dateKey); }
 
 function readTasks(): StudyTask[] {
   try {
@@ -167,13 +174,13 @@ function readTasks(): StudyTask[] {
       { id: 'task-2', title: 'Complete one practice set', subject: 'Mathematics', done: false },
       { id: 'task-3', title: 'Read a new lesson', subject: 'Science', done: true },
     ];
-    return Array.isArray(parsed) ? parsed.filter((item): item is StudyTask => item && typeof item.id === 'string' && typeof item.title === 'string' && typeof item.subject === 'string' && typeof item.done === 'boolean') : [];
+    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string' && typeof item.title === 'string' && typeof item.subject === 'string' && typeof item.done === 'boolean').map((item) => ({ id: item.id, title: item.title, subject: item.subject, done: item.done, dueDate: typeof item.dueDate === 'string' ? item.dueDate : localDateKey(new Date()), priority: item.priority === 'Low' || item.priority === 'High' ? item.priority : 'Normal', recurrence: item.recurrence === 'Daily' || item.recurrence === 'Weekly' ? item.recurrence : 'None', completedDates: Array.isArray(item.completedDates) ? item.completedDates.filter((date) => typeof date === 'string') : [] })) : [];
   } catch { return []; }
 }
 
 const defaultCourseId = 'study-habits';
 function readNotes(): StudyNote[] { try { const v: unknown = JSON.parse(window.localStorage.getItem('acedmix-notes') || '[]'); return Array.isArray(v) ? v.filter((x): x is StudyNote => x && typeof x.id === 'string' && typeof x.title === 'string' && typeof x.body === 'string' && typeof x.subject === 'string' && typeof x.updatedAt === 'number') : []; } catch { return []; } }
-function readFlashcards(): Flashcard[] { try { const v: unknown = JSON.parse(window.localStorage.getItem('acedmix-flashcards') || '[]'); return Array.isArray(v) ? v.filter((x): x is Flashcard => x && typeof x.id === 'string' && typeof x.front === 'string' && typeof x.back === 'string' && typeof x.subject === 'string') : []; } catch { return []; } }
+function readFlashcards(): Flashcard[] { try { const v: unknown = JSON.parse(window.localStorage.getItem('acedmix-flashcards') || '[]'); return Array.isArray(v) ? v.filter((x) => x && typeof x.id === 'string' && typeof x.front === 'string' && typeof x.back === 'string' && typeof x.subject === 'string').map((x) => ({ id: x.id, front: x.front, back: x.back, subject: x.subject, dueAt: typeof x.dueAt === 'number' ? x.dueAt : Date.now(), intervalDays: typeof x.intervalDays === 'number' ? x.intervalDays : 0, repetitions: typeof x.repetitions === 'number' ? x.repetitions : 0 })) : []; } catch { return []; } }
 
 function readCompleted(): string[] {
   try {
@@ -212,6 +219,10 @@ function App() {
   const [tasks, setTasks] = useState<StudyTask[]>(readTasks);
   const [newTask, setNewTask] = useState('');
   const [newSubject, setNewSubject] = useState('General');
+  const [newTaskDate, setNewTaskDate] = useState(() => localDateKey(new Date()));
+  const [newTaskPriority, setNewTaskPriority] = useState<'Low' | 'Normal' | 'High'>('Normal');
+  const [newTaskRecurrence, setNewTaskRecurrence] = useState<'None' | 'Daily' | 'Weekly'>('None');
+  const [plannerDate, setPlannerDate] = useState(() => localDateKey(new Date()));
   const [focusMode, setFocusMode] = useState<'focus' | 'short' | 'long'>('focus');
   const [secondsLeft, setSecondsLeft] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -224,7 +235,7 @@ function App() {
   const [quizBestScore, setQuizBestScore] = useState(() => Number(window.localStorage.getItem('acedmix-quiz-best') || 0));
   const [notes, setNotes] = useState<StudyNote[]>(readNotes);
   const [noteTitle, setNoteTitle] = useState(''); const [noteBody, setNoteBody] = useState(''); const [noteSubject, setNoteSubject] = useState('General'); const [noteSearch, setNoteSearch] = useState('');
-  const [flashcards, setFlashcards] = useState<Flashcard[]>(readFlashcards); const [cardFront, setCardFront] = useState(''); const [cardBack, setCardBack] = useState(''); const [cardSubject, setCardSubject] = useState('General'); const [activeCard, setActiveCard] = useState(0); const [cardFlipped, setCardFlipped] = useState(false); const [notesTab, setNotesTab] = useState<'notes' | 'flashcards'>('notes');
+  const [flashcards, setFlashcards] = useState<Flashcard[]>(readFlashcards); const [cardFront, setCardFront] = useState(''); const [cardBack, setCardBack] = useState(''); const [cardSubject, setCardSubject] = useState('General'); const [activeCard, setActiveCard] = useState(0); const [cardFlipped, setCardFlipped] = useState(false); const [notesTab, setNotesTab] = useState<'notes' | 'flashcards'>('notes'); const [revisionIndex, setRevisionIndex] = useState(0); const [revisionFlipped, setRevisionFlipped] = useState(false);
 
   useEffect(() => {
     window.localStorage.setItem('acedmix-completed-lessons', JSON.stringify(completedLessons));
@@ -306,9 +317,18 @@ function App() {
   const addTask = () => {
     const title = newTask.trim();
     if (!title) return;
-    setTasks((current) => [...current, { id: `task-${Date.now()}`, title, subject: newSubject, done: false }]);
+    setTasks((current) => [...current, { id: `task-${Date.now()}`, title, subject: newSubject, done: false, dueDate: newTaskDate, priority: newTaskPriority, recurrence: newTaskRecurrence, completedDates: [] }]);
     setNewTask('');
     setToast('Added to your study plan');
+  };
+  const plannerWeekStart = weekStart(plannerDate);
+  const plannerWeekDays = Array.from({ length: 7 }, (_, index) => shiftDate(plannerWeekStart, index));
+  const plannerDayTasks = tasks.filter((task) => taskOccursOn(task, plannerDate));
+  const plannerDoneCount = plannerDayTasks.filter((task) => taskIsDone(task, plannerDate)).length;
+  const plannerBacklog = tasks.filter((task) => task.recurrence === 'None' && task.dueDate < plannerDate && !task.done);
+  const togglePlannerTask = (task: StudyTask) => {
+    if (task.recurrence === 'None') setTasks((current) => current.map((item) => item.id === task.id ? { ...item, done: !item.done } : item));
+    else setTasks((current) => current.map((item) => item.id === task.id ? { ...item, completedDates: item.completedDates.includes(plannerDate) ? item.completedDates.filter((date) => date !== plannerDate) : [...item.completedDates, plannerDate] } : item));
   };
   const setTimerPreset = (mode: 'focus' | 'short' | 'long') => {
     setTimerRunning(false);
@@ -326,7 +346,10 @@ function App() {
   };
   const resetQuiz = () => { setQuizAnswers({}); setQuizSubmitted(false); };
   const addNote = () => { const title = noteTitle.trim(), body = noteBody.trim(); if (!title || !body) { setToast('Add a title and a few note details first'); return; } setNotes((items) => [{ id: 'note-' + Date.now(), title, body, subject: noteSubject, updatedAt: Date.now() }, ...items]); setNoteTitle(''); setNoteBody(''); setToast('Note saved on this device'); };
-  const addFlashcard = () => { const front = cardFront.trim(), back = cardBack.trim(); if (!front || !back) { setToast('Add both sides of your flashcard'); return; } setFlashcards((items) => [...items, { id: 'card-' + Date.now(), front, back, subject: cardSubject }]); setCardFront(''); setCardBack(''); setToast('Flashcard added to your deck'); };
+  const addFlashcard = () => { const front = cardFront.trim(), back = cardBack.trim(); if (!front || !back) { setToast('Add both sides of your flashcard'); return; } setFlashcards((items) => [...items, { id: 'card-' + Date.now(), front, back, subject: cardSubject, dueAt: Date.now(), intervalDays: 0, repetitions: 0 }]); setCardFront(''); setCardBack(''); setToast('Flashcard added to your deck'); };
+  const dueFlashcards = flashcards.filter((card) => card.dueAt <= Date.now());
+  const reviewCard = dueFlashcards[revisionIndex % Math.max(dueFlashcards.length, 1)];
+  const gradeReview = (rating: 'again' | 'hard' | 'good' | 'easy') => { if (!reviewCard) return; const nextInterval = rating === 'again' ? 0 : rating === 'hard' ? Math.max(1, reviewCard.intervalDays || 1) : rating === 'good' ? Math.max(1, Math.round((reviewCard.intervalDays || 1) * 2)) : Math.max(3, Math.round((reviewCard.intervalDays || 1) * 3)); const dueAt = rating === 'again' ? Date.now() + 10 * 60 * 1000 : Date.now() + nextInterval * 86400000; setFlashcards((items) => items.map((card) => card.id === reviewCard.id ? { ...card, dueAt, intervalDays: nextInterval, repetitions: rating === 'again' ? 0 : card.repetitions + 1 } : card)); setRevisionFlipped(false); setRevisionIndex(0); setToast(rating === 'again' ? 'We will revisit this card in 10 minutes' : 'Review scheduled. Keep going!'); };
   const resetProgress = () => {
     setCompletedLessons([]);
     setToast('Demo progress has been reset');
@@ -484,6 +507,16 @@ function App() {
             </>
           )}
 
+          {page === 'revision' && (
+            <>
+              <section className="page-heading-row"><div><p className="eyebrow">SMALL REVIEWS. STRONGER MEMORY.</p><h1>Revision <em>studio.</em></h1><p className="intro-subtitle">Bring each idea back just before it fades. Your deck sets the pace.</p></div><div className="library-stamp"><BrainCircuit size={24} /><span>ACTIVE<br />RECALL</span></div></section>
+              <section className="revision-overview"><div><span className="section-overline">READY TO REVIEW</span><strong>{dueFlashcards.length}</strong><p>cards due now</p></div><div><span className="section-overline">IN YOUR DECK</span><strong>{flashcards.length}</strong><p>total flashcards</p></div><div><span className="section-overline">UP NEXT</span><strong>{flashcards.filter((card) => card.dueAt > Date.now()).length}</strong><p>scheduled for later</p></div></section>
+              {reviewCard ? <section className="revision-session"><div className="section-heading"><div><p className="eyebrow">CARD {revisionIndex + 1} · {reviewCard.subject.toUpperCase()}</p><h2>What can you recall?</h2></div><span className="quiet-label">{dueFlashcards.length} DUE</span></div><button type="button" className={'study-flashcard revision-card ' + (revisionFlipped ? 'flipped' : '')} onClick={() => setRevisionFlipped((value) => !value)}><span className="study-card-label">{revisionFlipped ? 'ANSWER' : 'QUESTION'}</span><strong>{revisionFlipped ? reviewCard.back : reviewCard.front}</strong><span className="study-card-hint"><RotateCw size={15} /> Tap to {revisionFlipped ? 'hide answer' : 'reveal answer'}</span></button>{revisionFlipped ? <div className="revision-grades"><p>How well did you remember?</p><div><button type="button" onClick={() => gradeReview('again')}><strong>Again</strong><small>10 min</small></button><button type="button" onClick={() => gradeReview('hard')}><strong>Hard</strong><small>1 day</small></button><button type="button" onClick={() => gradeReview('good')}><strong>Good</strong><small>2 days+</small></button><button type="button" onClick={() => gradeReview('easy')}><strong>Easy</strong><small>3 days+</small></button></div></div> : <p className="revision-prompt">Try to answer from memory before revealing the back of the card.</p>}</section> : <div className="revision-empty"><CheckCircle2 size={32} /><h2>{flashcards.length ? 'You are all caught up.' : 'Your revision deck is waiting.'}</h2><p>{flashcards.length ? 'No cards are due right now. Your next reviews are scheduled automatically.' : 'Create flashcards in your Notes workspace, then come here to review them.'}</p><button type="button" className="button button-dark" onClick={() => navigate('notes')}>{flashcards.length ? 'Back to your learning desk' : 'Create your first flashcard'} <ArrowRight size={16} /></button></div>}
+              <section className="revision-schedule"><div className="section-heading"><div><p className="eyebrow">YOUR MEMORY QUEUE</p><h2>Coming up</h2></div><span className="quiet-label">AUTOMATIC SCHEDULE</span></div>{flashcards.slice().sort((a,b) => a.dueAt-b.dueAt).slice(0,6).map((card) => <div className="revision-queue-row" key={card.id}><span className="revision-queue-icon"><CalendarClock size={16} /></span><div><strong>{card.front}</strong><small>{card.subject}</small></div><time>{card.dueAt <= Date.now() ? 'Due now' : new Date(card.dueAt).toLocaleDateString()}</time></div>)}{flashcards.length === 0 && <p className="revision-prompt">Your saved flashcards will appear here.</p>}</section>
+              <p className="notes-privacy"><Sparkles size={15} /> Reviews are stored locally in this browser. This is a simple spaced-repetition schedule, not a cloud-synced study record.</p>
+            </>
+          )}
+
           {page === 'notes' && (
             <>
               <section className="page-heading-row"><div><p className="eyebrow">CAPTURE IT. CONNECT IT. REMEMBER IT.</p><h1>Your learning <em>desk.</em></h1><p className="intro-subtitle">Keep useful ideas close and turn key facts into active recall.</p></div><div className="library-stamp"><NotebookPen size={24} /><span>THINK<br />ON PAPER</span></div></section>
@@ -493,7 +526,7 @@ function App() {
                 <section className="section-block"><div className="section-heading"><div><p className="eyebrow">YOUR KNOWLEDGE SHELF</p><h2>Saved notes</h2></div><label className="notes-search"><Search size={15} /><input value={noteSearch} onChange={(e) => setNoteSearch(e.target.value)} placeholder="Search your notes" aria-label="Search notes" /></label></div><div className="notes-grid">{notes.filter((n) => (n.title + ' ' + n.body + ' ' + n.subject).toLowerCase().includes(noteSearch.toLowerCase())).map((n) => <article className="note-card" key={n.id}><div className="note-card-meta"><span>{n.subject}</span><button type="button" aria-label={'Delete ' + n.title} onClick={() => setNotes((items) => items.filter((x) => x.id !== n.id))}><Trash2 size={15} /></button></div><h3>{n.title}</h3><p>{n.body}</p><small>Updated {new Date(n.updatedAt).toLocaleDateString()}</small></article>)}{notes.length === 0 && <div className="empty-state"><NotebookPen size={28} /><h3>Your ideas have a home.</h3><p>Save your first note above.</p></div>}</div></section>
               </> : <>
                 <section className="note-composer"><div className="section-heading"><div><p className="eyebrow">BUILD ACTIVE RECALL</p><h2>Create a flashcard</h2></div><span className="quiet-label">QUESTION → ANSWER</span></div><form className="flashcard-form" onSubmit={(e) => { e.preventDefault(); addFlashcard(); }}><input value={cardFront} onChange={(e) => setCardFront(e.target.value)} placeholder="Front · Ask a question" aria-label="Flashcard question" maxLength={180} /><textarea value={cardBack} onChange={(e) => setCardBack(e.target.value)} placeholder="Back · Write the answer or explanation" aria-label="Flashcard answer" rows={3} /><div className="note-form-footer"><select value={cardSubject} onChange={(e) => setCardSubject(e.target.value)} aria-label="Flashcard subject"><option>General</option><option>Mathematics</option><option>Science</option><option>Technology</option><option>Revision</option></select><button className="button button-dark" type="submit"><Plus size={16} /> Add card</button></div></form></section>
-                <section className="flashcard-study"><div className="section-heading"><div><p className="eyebrow">RETRIEVAL PRACTICE</p><h2>Review your deck</h2></div><span className="quiet-label">{flashcards.length ? (activeCard + 1) + ' OF ' + flashcards.length : 'YOUR DECK IS EMPTY'}</span></div>{flashcards.length ? <><button type="button" className={'study-flashcard ' + (cardFlipped ? 'flipped' : '')} onClick={() => setCardFlipped((v) => !v)}><span className="study-card-label">{cardFlipped ? 'ANSWER' : 'QUESTION'} · {flashcards[activeCard]?.subject}</span><strong>{cardFlipped ? flashcards[activeCard]?.back : flashcards[activeCard]?.front}</strong><span className="study-card-hint"><RotateCw size={15} /> Tap to {cardFlipped ? 'see question' : 'reveal answer'}</span></button><div className="flashcard-controls"><button type="button" className="focus-reset" onClick={() => { setActiveCard((v) => (v - 1 + flashcards.length) % flashcards.length); setCardFlipped(false); }}><ArrowLeft size={16} /> Previous</button><button type="button" className="button button-dark" onClick={() => { setActiveCard((v) => (v + 1) % flashcards.length); setCardFlipped(false); }}>Next card <ArrowRight size={16} /></button></div><div className="flashcard-deck-list">{flashcards.map((card, i) => <div key={card.id}><span>{String(i + 1).padStart(2, '0')}</span><p>{card.front}</p><button type="button" aria-label="Delete flashcard" onClick={() => { setFlashcards((items) => items.filter((x) => x.id !== card.id)); setActiveCard(0); setCardFlipped(false); }}><Trash2 size={14} /></button></div>)}</div></> : <div className="empty-state"><Layers3 size={28} /><h3>Build your first deck.</h3><p>Turn important definitions and concepts into quick recall cards.</p></div>}</section>
+                <section className="flashcard-study"><div className="section-heading"><div><p className="eyebrow">RETRIEVAL PRACTICE</p><h2>Review your deck</h2></div><span className="quiet-label">{flashcards.length ? (activeCard + 1) + ' OF ' + flashcards.length : 'YOUR DECK IS EMPTY'}</span></div>{flashcards.length ? <><button type="button" className={'study-flashcard ' + (cardFlipped ? 'flipped' : '')} onClick={() => setCardFlipped((v) => !v)}><span className="study-card-label">{cardFlipped ? 'ANSWER' : 'QUESTION'} · {flashcards[activeCard]?.subject}</span><strong>{cardFlipped ? flashcards[activeCard]?.back : flashcards[activeCard]?.front}</strong><span className="study-card-hint"><RotateCw size={15} /> Tap to {cardFlipped ? 'see question' : 'reveal answer'}</span></button><div className="flashcard-controls"><button type="button" className="focus-reset" onClick={() => { setActiveCard((v) => (v - 1 + flashcards.length) % flashcards.length); setCardFlipped(false); }}><ArrowLeft size={16} /> Previous</button><button type="button" className="button button-dark" onClick={() => { setActiveCard((v) => (v + 1) % flashcards.length); setCardFlipped(false); }}>Next card <ArrowRight size={16} /></button></div><div className="flashcard-deck-list">{flashcards.map((card, i) => <div key={card.id}><span>{String(i + 1).padStart(2, '0')}</span><p>{card.front}</p><button type="button" aria-label={`Delete flashcard: ${card.front}`} onClick={() => { setFlashcards((items) => items.filter((x) => x.id !== card.id)); setActiveCard(0); setCardFlipped(false); }}><Trash2 size={14} /></button></div>)}</div></> : <div className="empty-state"><Layers3 size={28} /><h3>Build your first deck.</h3><p>Turn important definitions and concepts into quick recall cards.</p></div>}</section>
               </>}
               <p className="notes-privacy"><Sparkles size={15} /> Notes and flashcards are saved locally in this browser. They are not synced to an account or cloud.</p>
             </>
@@ -501,12 +534,19 @@ function App() {
 
           {page === 'planner' && (
             <>
-              <section className="page-heading-row"><div><p className="eyebrow">MAKE SPACE FOR WHAT MATTERS</p><h1>Your study <em>plan.</em></h1><p className="intro-subtitle">A clear plan makes starting feel easier.</p></div><div className="library-stamp"><CalendarDays size={24} /><span>ONE DAY<br />AT A TIME</span></div></section>
-              <section className="planner-summary"><div><span className="section-overline">TODAY’S MOMENTUM</span><strong>{tasks.filter((task) => task.done).length}<small> / {tasks.length}</small></strong><p>tasks completed</p></div><div className="planner-summary-track"><span style={{ width: `${tasks.length ? tasks.filter((task) => task.done).length / tasks.length * 100 : 0}%` }} /></div><span className="planner-quote">“It always seems impossible until it’s done.”</span></section>
-              <section className="section-block planner-block"><div className="section-heading"><div><p className="eyebrow">YOUR PRIORITIES</p><h2>Today’s checklist</h2></div><span className="quiet-label">{tasks.filter((task) => !task.done).length} LEFT TO DO</span></div>
-                <form className="task-form" onSubmit={(event) => { event.preventDefault(); addTask(); }}><input aria-label="New task" value={newTask} onChange={(event) => setNewTask(event.target.value)} placeholder="Add a small, achievable task..." /><select aria-label="Task subject" value={newSubject} onChange={(event) => setNewSubject(event.target.value)}><option>General</option><option>Mathematics</option><option>Science</option><option>Revision</option><option>Practice</option></select><button className="button button-dark" type="submit"><Plus size={16} /> Add task</button></form>
-                <div className="task-list">{tasks.map((task) => <div className={`task-row ${task.done ? 'task-done' : ''}`} key={task.id}><button type="button" className="task-check" aria-label={task.done ? `Reopen ${task.title}` : `Complete ${task.title}`} onClick={() => setTasks((current) => current.map((item) => item.id === task.id ? { ...item, done: !item.done } : item))}>{task.done && <Check size={14} />}</button><span className="task-copy"><strong>{task.title}</strong><small>{task.subject}</small></span><button type="button" className="task-remove" aria-label={`Delete ${task.title}`} onClick={() => setTasks((current) => current.filter((item) => item.id !== task.id))}><X size={16} /></button></div>)}{tasks.length === 0 && <div className="empty-state"><Target size={28} /><h3>A fresh page.</h3><p>Add one small task to get started.</p></div>}</div>
+              <section className="page-heading-row"><div><p className="eyebrow">MAKE SPACE FOR WHAT MATTERS</p><h1>Your study <em>plan.</em></h1><p className="intro-subtitle">Plan the week, make progress visible, and give every task a place.</p></div><div className="library-stamp"><CalendarDays size={24} /><span>ONE DAY<br />AT A TIME</span></div></section>
+              <section className="planner-summary"><div><span className="section-overline">SELECTED DAY</span><strong>{plannerDoneCount}<small> / {plannerDayTasks.length}</small></strong><p>tasks completed</p></div><div className="planner-summary-track"><span style={{ width: `${plannerDayTasks.length ? plannerDoneCount / plannerDayTasks.length * 100 : 0}%` }} /></div><span className="planner-quote">{plannerDayTasks.length ? `${plannerDayTasks.length - plannerDoneCount} tasks left in your plan` : 'A little structure creates room to grow.'}</span></section>
+              <section className="planner-calendar">
+                <div className="planner-calendar-head"><div><p className="eyebrow">YOUR WEEK AT A GLANCE</p><h2>{new Date(Number(plannerWeekStart.slice(0,4)), Number(plannerWeekStart.slice(5,7))-1, Number(plannerWeekStart.slice(8,10))).toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2></div><div className="planner-week-actions"><button type="button" onClick={() => setPlannerDate((date) => { const next = shiftDate(date,-7); setNewTaskDate(next); return next; })} aria-label="Previous week"><ArrowLeft size={16}/></button><button type="button" onClick={() => { const today = localDateKey(new Date()); setPlannerDate(today); setNewTaskDate(today); }}>Today</button><button type="button" onClick={() => setPlannerDate((date) => { const next = shiftDate(date,7); setNewTaskDate(next); return next; })} aria-label="Next week"><ArrowRight size={16}/></button></div></div>
+                <div className="planner-week-grid">{plannerWeekDays.map((date) => { const [y,m,d] = date.split('-').map(Number); const day = new Date(y,m-1,d); const dayTasks = tasks.filter((task) => taskOccursOn(task,date)); const done = dayTasks.filter((task) => taskIsDone(task,date)).length; return <button type="button" key={date} className={`planner-day ${plannerDate === date ? 'selected' : ''} ${date === localDateKey(new Date()) ? 'is-today' : ''}`} onClick={() => { setPlannerDate(date); setNewTaskDate(date); }}><span>{day.toLocaleDateString(undefined,{weekday:'short'})}</span><strong>{d}</strong><small>{dayTasks.length ? `${done}/${dayTasks.length} done` : 'No tasks'}</small><i style={{ opacity: dayTasks.length ? 1 : 0 }} /></button>; })}</div>
+                <div className="planner-selected-date"><CalendarDays size={16}/><strong>{new Date(Number(plannerDate.slice(0,4)),Number(plannerDate.slice(5,7))-1,Number(plannerDate.slice(8,10))).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</strong><span>{plannerDayTasks.length} planned</span></div>
               </section>
+              <section className="section-block planner-block"><div className="section-heading"><div><p className="eyebrow">BUILD YOUR PLAN</p><h2>Add a task</h2></div><span className="quiet-label">SMALL STEPS COUNT</span></div>
+                <form className="task-form planner-task-form" onSubmit={(event) => { event.preventDefault(); addTask(); }}><input aria-label="New task" value={newTask} onChange={(event) => setNewTask(event.target.value)} placeholder="Add a small, achievable task..." /><select aria-label="Task subject" value={newSubject} onChange={(event) => setNewSubject(event.target.value)}><option>General</option><option>Mathematics</option><option>Science</option><option>Revision</option><option>Practice</option><option>Technology</option></select><input aria-label="Task due date" type="date" value={newTaskDate} onChange={(event) => setNewTaskDate(event.target.value)} /><select aria-label="Task priority" value={newTaskPriority} onChange={(event) => setNewTaskPriority(event.target.value as 'Low'|'Normal'|'High')}><option>Low</option><option>Normal</option><option>High</option></select><select aria-label="Task recurrence" value={newTaskRecurrence} onChange={(event) => setNewTaskRecurrence(event.target.value as 'None'|'Daily'|'Weekly')}><option value="None">No repeat</option><option value="Daily">Every day</option><option value="Weekly">Every week</option></select><button className="button button-dark" type="submit"><Plus size={16} /> Add task</button></form>
+                <div className="section-heading planner-list-heading"><div><p className="eyebrow">YOUR PRIORITIES</p><h2>{plannerDate === localDateKey(new Date()) ? 'Today’s checklist' : 'Daily checklist'}</h2></div><span className="quiet-label">{plannerDayTasks.length - plannerDoneCount} LEFT TO DO</span></div>
+                <div className="task-list">{plannerDayTasks.slice().sort((a,b) => ({High:0,Normal:1,Low:2}[a.priority] - {High:0,Normal:1,Low:2}[b.priority])).map((task) => { const done = taskIsDone(task,plannerDate); return <div className={`task-row planner-task-row ${done ? 'task-done' : ''}`} key={task.id}><button type="button" className="task-check" aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`} onClick={() => togglePlannerTask(task)}>{done && <Check size={14}/>}</button><span className="task-copy"><strong>{task.title}</strong><small>{task.subject} · {task.priority} priority{task.recurrence !== 'None' ? ` · ${task.recurrence.toLowerCase()}` : ''}</small></span><span className={`task-priority priority-${task.priority.toLowerCase()}`}>{task.priority}</span><button type="button" className="task-remove" aria-label={`Delete ${task.title}`} onClick={() => setTasks((current) => current.filter((item) => item.id !== task.id))}><X size={16}/></button></div>; })}{plannerDayTasks.length === 0 && <div className="empty-state"><Target size={28}/><h3>A fresh page.</h3><p>No tasks are planned for this day. Add one small step above.</p></div>}</div>
+              </section>
+              <section className="planner-backlog"><div className="section-heading"><div><p className="eyebrow">CATCH UP WITHOUT THE CHAOS</p><h2>Backlog</h2></div><span className="quiet-label">{plannerBacklog.length} OVERDUE</span></div>{plannerBacklog.map((task) => <div className="planner-backlog-row" key={task.id}><span className="backlog-dot"/><div><strong>{task.title}</strong><small>{task.subject} · Due {new Date(Number(task.dueDate.slice(0,4)),Number(task.dueDate.slice(5,7))-1,Number(task.dueDate.slice(8,10))).toLocaleDateString()}</small></div><button type="button" onClick={() => setTasks((current) => current.map((item) => item.id === task.id ? {...item,dueDate:plannerDate} : item))}>Move to selected day</button></div>)}{plannerBacklog.length === 0 && <p className="planner-backlog-empty"><CheckCircle2 size={16}/> No overdue tasks. Your backlog is clear.</p>}</section>
             </>
           )}
 

@@ -25,3 +25,20 @@
 - Added flashcard creation, answer reveal, and previous/next active-recall review.
 - Added responsive light and dark styling for the learning desk.
 - Clarified that notes and flashcards are stored only in the current browser.
+
+
+## 1.4.0 — Revision studio
+
+- Added a spaced-repetition review workspace for flashcards.
+- Added Again, Hard, Good, and Easy ratings to schedule future reviews.
+- Migrated existing flashcards to include review metadata without losing saved cards.
+- Added due-now counts, upcoming review queue, and responsive light/dark styles.
+
+
+## 1.5.0 — Smart study planner
+
+- Added a selectable seven-day weekly calendar with previous/next week navigation and a Today shortcut.
+- Added task due dates, priority levels, and daily/weekly recurrence.
+- Added per-day completion for recurring tasks and priority-sorted daily checklists.
+- Added an overdue backlog with one-click rescheduling to the selected date.
+- Migrated existing local tasks with safe defaults so previously saved tasks remain available.
