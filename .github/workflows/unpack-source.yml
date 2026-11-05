@@ -1,0 +1,47 @@
+name: Unpack AcedmiX source
+
+on:
+  push:
+    paths:
+      - "AcedmiX-repository.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract project files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f AcedmiX-repository.zip ]; then
+            echo "No source archive to unpack."
+            exit 0
+          fi
+          mkdir -p /tmp/acedmix-source
+          unzip -q AcedmiX-repository.zip -d /tmp/acedmix-source
+          SOURCE_DIR=/tmp/acedmix-source/AcedmiX
+          if [ ! -d "$SOURCE_DIR" ]; then
+            echo "Expected AcedmiX/ folder was not found in the archive."
+            exit 1
+          fi
+          find "$SOURCE_DIR" -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} . \;
+          rm AcedmiX-repository.zip
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: unpack AcedmiX project source"
+          git push
