@@ -2,8 +2,7 @@ name: Unpack AcedmiX source
 
 on:
   push:
-    paths:
-      - "AcedmiX-repository.zip"
+    branches: [main]
   workflow_dispatch:
 
 permissions:
